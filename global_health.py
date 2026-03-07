@@ -237,3 +237,42 @@ def update_game(current_airport, fuel, money, game_id):
     cursor.execute(sql,(current_airport, fuel, money, game_id))
 
 # ==========================================================
+#Step 1 start the game
+
+print("\nGLOBAL HEALTH MISSION")
+print("You are a scientist trying to stop a virus outbreak.")
+
+player_name = input("Enter scientist name: ")
+
+# starting resources
+money = 1000
+fuel_range_km = 2000
+
+# game state
+game_over = False
+outbreak_stopped = False
+successful_missions = 0
+
+# ==========================================================
+# STEP 2 – load all airports
+# ==========================================================
+
+airports = get_airports()
+
+# start_airport ident
+start_airport = airports[0]["ident"]
+#current airport
+current_airport = start_airport
+
+# ==========================================================
+# STEP 3 – CREATE GAME IN DATABASE
+# ==========================================================
+
+game_id = create_game(player_name, start_airport, money, fuel_range_km)
+
+# ==========================================================
+# STEP 4 – ASSIGN EVENTS
+# ==========================================================
+
+assign_events(game_id, airports, start_airport)
+
