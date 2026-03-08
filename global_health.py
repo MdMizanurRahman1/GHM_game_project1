@@ -12,7 +12,6 @@ conn = mysql.connector.connect(
          )
 
 
-
 #1 To get 30 airports
 def get_airports():
 
@@ -32,11 +31,10 @@ def get_airports():
     return cursor.fetchall()
 
 
- #STEP 2 – CREATE A NEW GAME SESSION
+#STEP 2 – CREATE A NEW GAME SESSION
 # ==========================================================
 
 def create_game(player_name, start_airport, money, fuel):
-
 
     sql = """
     INSERT INTO game
@@ -53,7 +51,6 @@ def create_game(player_name, start_airport, money, fuel):
     return cursor.lastrowid
 
 
-
 # ==========================================================
 # Step 3 ASSIGN EVENTS TO AIRPORTS
 # ==========================================================
@@ -62,26 +59,21 @@ def assign_events(game_id, airports, start_airport):
 
     cursor = conn.cursor(dictionary=True)
 
-    # STEP 1: Read event probabilities
     sql = "SELECT event_id, probability FROM event"
     cursor.execute(sql)
     events = cursor.fetchall()
 
-    # STEP 2: Create event list
     event_list = []
 
     for event in events:
         for i in range(event["probability"]):
             event_list.append(event["event_id"])
 
-    # STEP 3: Remove starting airport
     available_airports = [a for a in airports if a["ident"] != start_airport]
 
-    # STEP 4: Shuffle airports and events
     random.shuffle(available_airports)
     random.shuffle(event_list)
 
-    # STEP 5: Assign events
     for i, event_id in enumerate(event_list):
 
         if i >= len(available_airports):
@@ -97,8 +89,8 @@ def assign_events(game_id, airports, start_airport):
 
         cursor.execute(sql, (game_id, airport_id, event_id))
 
-# Step 4 get airport information
 
+# Step 4 get airport information
 def get_airport_info(icao):
 
     sql = """
@@ -111,6 +103,7 @@ def get_airport_info(icao):
     cursor.execute(sql, (icao,))
 
     return cursor.fetchone()
+
 
 #Step 5  CALCULATE DISTANCE between two airports
 # ==========================================================
@@ -125,7 +118,6 @@ def calculate_distance(current, target):
         (end["latitude_deg"], end["longitude_deg"])
     ).km
 
-# ==================================================
 
 #step 6 find range for airports
 
@@ -142,21 +134,24 @@ def airports_in_range(icao, airports, fuel_range_km):
 
     return in_range_airports
 
+
 #step 7 check events if exists
 
 def check_event(game_id, airport):
 
     sql = """
-    SELECT event.event_id,
-           event.event_type,
-           event.event_name,
-           reward_money,
-           reward_fuel,
-           penalty_option_one,
-           penalty_option_two
-    FROM game_event
-    JOIN event ON event.event_id = game_event.event_id
-    WHERE game_id=%s AND airport_id=%s
+SELECT event.event_id,
+       event.event_type,
+       event.event_name,
+       reward_money,
+       reward_fuel,
+       penalty_option_one,
+       penalty_option_two
+FROM game_event
+JOIN event ON event.event_id = game_event.event_id
+WHERE game_id=%s 
+AND airport_id=%s 
+AND is_completed = 0
     """
 
     cursor = conn.cursor(dictionary=True)
@@ -170,9 +165,23 @@ def check_event(game_id, airport):
     return result
 
 
+# <<< ADDED
+# Mark event as completed so it cannot repeat
+def mark_event_completed(game_id, airport):
+
+    cursor = conn.cursor()
+
+    sql = """
+    UPDATE game_event
+    SET is_completed = 1
+    WHERE game_id = %s AND airport_id = %s
+    """
+
+    cursor.execute(sql, (game_id, airport))
+
+
 #step 8 QUIZ FUNCTIONS
 # ==========================================================
-#1 get the questions
 
 def get_questions(event_id):
 
@@ -187,7 +196,6 @@ def get_questions(event_id):
 
     return cursor.fetchall()
 
-#2 get the answers
 
 def get_answers(quiz_id):
 
@@ -202,7 +210,6 @@ def get_answers(quiz_id):
 
     return cursor.fetchall()
 
-#3 get the correct answer
 
 def check_answer(answer_id):
 
@@ -236,9 +243,9 @@ def update_game(current_airport, fuel, money, game_id):
     cursor = conn.cursor()
     cursor.execute(sql,(current_airport, fuel, money, game_id))
 
+
 # ==========================================================
 #Step 1 start the game
-
 
 print("\nGLOBAL HEALTH MISSION")
 
@@ -246,41 +253,36 @@ player_name = input("Enter scientist name: ")
 print("\nWelcome", player_name + "!")
 print("Mission: Stop the virus outbreak and return safely to your starting airport.")
 
-# starting resources
 money = 1000
 fuel_range_km = 2000
 
-# game state
 game_over = False
 outbreak_stopped = False
 successful_missions = 0
 
-# ==========================================================
+risk_events_seen = 0
+bonus_events_seen = 0
+
+
 # STEP 2 – load all airports
-# ==========================================================
 
 airports = get_airports()
 
-# start_airport ident
 start_airport = airports[0]["ident"]
-#current airport
 current_airport = start_airport
 
-# ==========================================================
+
 # STEP 3 – CREATE GAME IN DATABASE
-# ==========================================================
 
 game_id = create_game(player_name, start_airport, money, fuel_range_km)
 
-# ==========================================================
+
 # STEP 4 – ASSIGN EVENTS
-# ==========================================================
 
 assign_events(game_id, airports, start_airport)
 
-# ==========================================================
+
 # STEP 5 – MAIN GAME LOOP
-# ==========================================================
 
 while not game_over:
 
@@ -291,12 +293,16 @@ while not game_over:
     print("Country:", airport["iso_country"])
 
     print("You have", money, "€ left.")
-
     print("Fuel range left:", int(fuel_range_km), "km")
-    # step 6 check event
+
+    print("\nMission Progress")
+    print("Help missions completed:", successful_missions, "/ 2")
+    print("Risk events encountered:", risk_events_seen, "/ 1")
+    print("Bonus events received:", bonus_events_seen, "/ 1")
+
     event = check_event(game_id, current_airport)
 
-    # step 7 Help missions
+
     if event and event["event_type"] == "Help":
 
         print("\nHelp Mission:", event["event_name"])
@@ -348,8 +354,11 @@ while not game_over:
 
         else:
 
-            print("\nMission failed.")
-    #step 8 risk events
+            print("Mission failed. You needed at least 2 correct answers.")
+
+        mark_event_completed(game_id, current_airport)  # <<< ADDED
+
+
     elif event and event["event_type"] == "Risk":
 
         print("\nVirus spread detected!")
@@ -362,7 +371,12 @@ while not game_over:
             money -= 200
 
         print("Money remaining:", money)
-    #step 9 bonus events
+
+        risk_events_seen += 1
+
+        mark_event_completed(game_id, current_airport)  # <<< ADDED
+
+
     elif event and event["event_type"] == "Bonus":
 
         print("\nFriendly scientist shares tips!")
@@ -378,38 +392,30 @@ while not game_over:
 
             fuel_range_km += 10
             print("You received +10 fuel")
-    #step 10 main outbreak event
 
-   # ==========================================================
-    # MAIN OUTBREAK EVENT
-    # ==========================================================
+        bonus_events_seen += 1
+
+        mark_event_completed(game_id, current_airport)  # <<< ADDED
+
 
     elif event and event["event_type"] == "Main":
 
-        # First check if player completed enough help missions
-
-        if successful_missions < 2:
+        if successful_missions < 2 or risk_events_seen < 1 or bonus_events_seen < 1:
 
             print("\nYou discovered the main outbreak location!")
-            print("You must complete at least TWO help missions first.")
-
-
-
+            print("Before stopping the outbreak you must:")
+            print("- Complete at least TWO help missions")
+            print("- Encounter at least ONE virus spread event")
+            print("- Receive at least ONE scientist bonus")
 
         else:
 
-            # Player is ready for the final mission
-
             print("\nYou have arrived at the main outbreak site.")
-
             print("Complete one final task to contain it.")
 
             print("\nChoose your action:")
-
             print("1 Deploy emergency containment supplies")
-
             print("2 Coordinate with local scientists")
-
             print("3 Deliver critical medical kit")
 
             choice = input("Enter your choice (1, 2 or 3): ")
@@ -420,29 +426,24 @@ while not game_over:
 
                 outbreak_stopped = True
 
-                # Save completion in database
-
                 cursor = conn.cursor()
 
                 sql = """
-
                       UPDATE game
-
                       SET main_outbreak_completed = 1
-
-                      WHERE game_id = %s \
-
+                      WHERE game_id = %s
                       """
 
                 cursor.execute(sql, (game_id,))
 
-                print("Return to the starting airport to finish the mission.")
+                mark_event_completed(game_id, current_airport)  # <<< ADDED
 
+                print("Return to the starting airport to finish the mission.")
 
             else:
 
                 print("Invalid choice. The outbreak continues.")
-    #step 11 buy fuel in range km
+
 
     if money > 0:
 
@@ -467,15 +468,9 @@ while not game_over:
                 print("New fuel range:", int(fuel_range_km), "km")
                 print("Money left:", money)
 
-    # step 12 travel system in range
-
-# ----------------------------------------------------------
-    # TRAVEL SYSTEM
-    # ----------------------------------------------------------
 
     available_airports = airports_in_range(current_airport, airports, fuel_range_km)
 
-    # If airports are reachable
     if len(available_airports) > 0:
 
         print("\nAirports in range:")
@@ -484,7 +479,6 @@ while not game_over:
             dist = calculate_distance(current_airport, airport["ident"])
             print(airport["ident"], "-", airport["name"], "-", int(dist), "km")
 
-        # Ask player where to go
         destination = input("\nEnter destination ICAO: ").upper()
 
         travel_distance = calculate_distance(current_airport, destination)
@@ -498,8 +492,6 @@ while not game_over:
         else:
             print("That airport is too far.")
 
-
-    # If no airport is reachable
     else:
 
         print("\nNo airports are within your current fuel range.")
@@ -528,24 +520,23 @@ while not game_over:
 
         else:
 
-            print("\nYou have no money and no fuel.")
             print("MISSION FAILED")
             game_over = True
 
-    # step 13 lose condition
+
     if money <= 0 and fuel_range_km <= 0:
 
         print("\nMISSION FAILED")
         game_over = True
 
-    # step 14 win condition
+
     if outbreak_stopped and current_airport == start_airport:
 
         print("\nMISSION COMPLETE!")
         print("You successfully controlled the outbreak and returned safely.")
 
         game_over = True
-    # step 15 end the game
+
 
     print("Money left:", money)
     print("Fuel left:", int(fuel_range_km))
