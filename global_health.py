@@ -239,10 +239,12 @@ def update_game(current_airport, fuel, money, game_id):
 # ==========================================================
 #Step 1 start the game
 
+
 print("\nGLOBAL HEALTH MISSION")
-print("You are a scientist trying to stop a virus outbreak.")
 
 player_name = input("Enter scientist name: ")
+print("\nWelcome", player_name + "!")
+print("Mission: Stop the virus outbreak and return safely to your starting airport.")
 
 # starting resources
 money = 1000
@@ -275,4 +277,106 @@ game_id = create_game(player_name, start_airport, money, fuel_range_km)
 # ==========================================================
 
 assign_events(game_id, airports, start_airport)
+
+# ==========================================================
+# STEP 5 – MAIN GAME LOOP
+# ==========================================================
+
+while not game_over:
+
+    airport = get_airport_info(current_airport)
+
+    print("\n----------------------------------")
+    print("You are at:", airport["name"])
+    print("Country:", airport["iso_country"])
+
+    print("You have", money, "€ left.")
+
+    print("Fuel range left:", int(fuel_range_km), "km")
+    # step 6 check event
+    event = check_event(game_id, current_airport)
+
+    # step 7 Help missions
+    if event and event["event_type"] == "Help":
+
+        print("\nHelp Mission:", event["event_name"])
+
+        questions = get_questions(event["event_id"])
+
+        correct_answers = 0
+
+        for question in questions:
+
+            print("\nQuestion:", question["question_text"])
+
+            answers = get_answers(question["quiz_id"])
+
+            for a in answers:
+                print(a["answer_id"], "-", a["answer_text"])
+
+            attempts = 2
+            answered_correctly = False
+
+            while attempts > 0 and not answered_correctly:
+
+                user_answer = int(input("Choose answer number: "))
+
+                if check_answer(user_answer):
+
+                    print("Correct!")
+                    correct_answers += 1
+                    answered_correctly = True
+
+                else:
+
+                    attempts -= 1
+
+                    if attempts > 0:
+                        print("Wrong answer. Try again.")
+                    else:
+                        print("No attempts left.")
+
+        if correct_answers >= 2:
+
+            print("Mission successful!")
+
+            money += event["reward_money"]
+            successful_missions += 1
+
+            print("Reward:", event["reward_money"], "€")
+            print("Your money now:", money, "€")
+
+        else:
+
+            print("\nMission failed.")
+    #step 8 risk events
+    elif event and event["event_type"] == "Risk":
+
+        print("\nVirus spread detected!")
+
+        choice = input("1 Leave quickly (-100€) / 2 Delay (-200€): ")
+
+        if choice == "1":
+            money -= 100
+        else:
+            money -= 200
+
+        print("Money remaining:", money)
+    #step 9 bonus events
+    elif event and event["event_type"] == "Bonus":
+
+        print("\nFriendly scientist shares tips!")
+
+        reward = random.choice(["money", "fuel"])
+
+        if reward == "money":
+
+            money += 50
+            print("You received +50€")
+
+        else:
+
+            fuel_range_km += 10
+            print("You received +10 fuel")
+    #step 10 main outbreak event
 
