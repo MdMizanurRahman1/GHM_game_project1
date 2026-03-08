@@ -469,3 +469,83 @@ while not game_over:
 
     # step 12 travel system in range
 
+# ----------------------------------------------------------
+    # TRAVEL SYSTEM
+    # ----------------------------------------------------------
+
+    available_airports = airports_in_range(current_airport, airports, fuel_range_km)
+
+    # If airports are reachable
+    if len(available_airports) > 0:
+
+        print("\nAirports in range:")
+
+        for airport in available_airports:
+            dist = calculate_distance(current_airport, airport["ident"])
+            print(airport["ident"], "-", airport["name"], "-", int(dist), "km")
+
+        # Ask player where to go
+        destination = input("\nEnter destination ICAO: ").upper()
+
+        travel_distance = calculate_distance(current_airport, destination)
+
+        if travel_distance <= fuel_range_km:
+
+            fuel_range_km -= travel_distance
+            update_game(destination, fuel_range_km, money, game_id)
+            current_airport = destination
+
+        else:
+            print("That airport is too far.")
+
+
+    # If no airport is reachable
+    else:
+
+        print("\nNo airports are within your current fuel range.")
+
+        if money > 0:
+
+            print("\nFuel station available")
+            print("1 € = 2 km fuel")
+
+            fuel_buy = input("Enter money to spend on fuel (press Enter to skip): ")
+
+            if fuel_buy != "":
+
+                fuel_buy = int(fuel_buy)
+
+                if fuel_buy <= money:
+
+                    fuel_range_km += fuel_buy * 2
+                    money -= fuel_buy
+
+                    print("New fuel range:", int(fuel_range_km), "km")
+                    print("Money left:", money, "€")
+
+                else:
+                    print("You do not have enough money.")
+
+        else:
+
+            print("\nYou have no money and no fuel.")
+            print("MISSION FAILED")
+            game_over = True
+
+    # step 13 lose condition
+    if money <= 0 and fuel_range_km <= 0:
+
+        print("\nMISSION FAILED")
+        game_over = True
+
+    # step 14 win condition
+    if outbreak_stopped and current_airport == start_airport:
+
+        print("\nMISSION COMPLETE!")
+        print("You successfully controlled the outbreak and returned safely.")
+
+        game_over = True
+    # step 15 end the game
+
+    print("Money left:", money)
+    print("Fuel left:", int(fuel_range_km))
