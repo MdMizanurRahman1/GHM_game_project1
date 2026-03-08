@@ -151,7 +151,6 @@ FROM game_event
 JOIN event ON event.event_id = game_event.event_id
 WHERE game_id=%s 
 AND airport_id=%s 
-AND is_completed = 0
     """
 
     cursor = conn.cursor(dictionary=True)
@@ -164,20 +163,6 @@ AND is_completed = 0
 
     return result
 
-
-# <<< ADDED
-# Mark event as completed so it cannot repeat
-def mark_event_completed(game_id, airport):
-
-    cursor = conn.cursor()
-
-    sql = """
-    UPDATE game_event
-    SET is_completed = 1
-    WHERE game_id = %s AND airport_id = %s
-    """
-
-    cursor.execute(sql, (game_id, airport))
 
 #step 8 QUIZ FUNCTIONS
 # ==========================================================
@@ -355,7 +340,6 @@ while not game_over:
 
             print("Mission failed. You needed at least 2 correct answers.")
 
-        mark_event_completed(game_id, current_airport)  # <<< ADDED
 
 
     elif event and event["event_type"] == "Risk":
@@ -373,7 +357,6 @@ while not game_over:
 
         risk_events_seen += 1
 
-        mark_event_completed(game_id, current_airport)  # <<< ADDED
 
 
     elif event and event["event_type"] == "Bonus":
@@ -393,8 +376,6 @@ while not game_over:
             print("You received +10 fuel")
 
         bonus_events_seen += 1
-
-        mark_event_completed(game_id, current_airport)  # <<< ADDED
 
 
     elif event and event["event_type"] == "Main":
@@ -424,8 +405,6 @@ while not game_over:
                 print("\nCongratulations! You have stopped the main outbreak.")
 
                 outbreak_stopped = True
-
-                mark_event_completed(game_id, current_airport)  # <<< ADDED
 
                 print("Return to the starting airport to finish the mission.")
 
@@ -522,7 +501,8 @@ while not game_over:
     if outbreak_stopped and current_airport == start_airport:
 
         print("\nMISSION COMPLETE!")
-        print("You are at:", airport["name"])
+        final_airport = get_airport_info(current_airport)
+        print("You are at:", final_airport["name"])
         print("You successfully controlled the outbreak and returned safely.")
 
         game_over = True
