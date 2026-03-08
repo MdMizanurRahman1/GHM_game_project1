@@ -380,3 +380,92 @@ while not game_over:
             print("You received +10 fuel")
     #step 10 main outbreak event
 
+   # ==========================================================
+    # MAIN OUTBREAK EVENT
+    # ==========================================================
+
+    elif event and event["event_type"] == "Main":
+
+        # First check if player completed enough help missions
+
+        if successful_missions < 2:
+
+            print("\nYou discovered the main outbreak location!")
+            print("You must complete at least TWO help missions first.")
+
+
+
+
+        else:
+
+            # Player is ready for the final mission
+
+            print("\nYou have arrived at the main outbreak site.")
+
+            print("Complete one final task to contain it.")
+
+            print("\nChoose your action:")
+
+            print("1 Deploy emergency containment supplies")
+
+            print("2 Coordinate with local scientists")
+
+            print("3 Deliver critical medical kit")
+
+            choice = input("Enter your choice (1, 2 or 3): ")
+
+            if choice == "1" or choice == "2" or choice == "3":
+
+                print("\nCongratulations! You have stopped the main outbreak.")
+
+                outbreak_stopped = True
+
+                # Save completion in database
+
+                cursor = conn.cursor()
+
+                sql = """
+
+                      UPDATE game
+
+                      SET main_outbreak_completed = 1
+
+                      WHERE game_id = %s \
+
+                      """
+
+                cursor.execute(sql, (game_id,))
+
+                print("Return to the starting airport to finish the mission.")
+
+
+            else:
+
+                print("Invalid choice. The outbreak continues.")
+    #step 11 buy fuel in range km
+
+    if money > 0:
+
+        print("\nFuel station available")
+        print("1 € = 2 km fuel")
+
+        buy = input("Enter money to spend on fuel (or press Enter to skip): ")
+
+        if buy != "":
+
+            buy = int(buy)
+
+            if buy > money:
+
+                print("Not enough money.")
+
+            else:
+
+                fuel_range_km += buy * 2
+                money -= buy
+
+                print("New fuel range:", int(fuel_range_km), "km")
+                print("Money left:", money)
+
+    # step 12 travel system in range
+
