@@ -408,6 +408,20 @@ while not game_over:
 
                 print("Return to the starting airport to finish the mission.")
 
+                # move player to starting airport
+                current_airport = start_airport
+
+                # show final location and win codition
+
+                final_airport = get_airport_info(current_airport)
+
+                print("\nMISSION COMPLETE!")
+                print("You are at:", final_airport["name"])
+                print("You successfully controlled the outbreak and returned safely.")
+
+                game_over = True
+                break
+
             else:
 
                 print("Invalid choice. The outbreak continues.")
@@ -498,14 +512,14 @@ while not game_over:
         game_over = True
 
 
-    if outbreak_stopped and current_airport == start_airport:
-
-        print("\nMISSION COMPLETE!")
-        final_airport = get_airport_info(current_airport)
-        print("You are at:", final_airport["name"])
-        print("You successfully controlled the outbreak and returned safely.")
-
-        game_over = True
+    # if outbreak_stopped and current_airport == start_airport:
+    #
+    #     print("\nMISSION COMPLETE!")
+    #     final_airport = get_airport_info(current_airport)
+    #     print("You are at:", final_airport["name"])
+    #     print("You successfully controlled the outbreak and returned safely.")
+    #
+    #     game_over = True
 
 
     print("Money left:", money)
