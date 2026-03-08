@@ -179,7 +179,6 @@ def mark_event_completed(game_id, airport):
 
     cursor.execute(sql, (game_id, airport))
 
-
 #step 8 QUIZ FUNCTIONS
 # ==========================================================
 
@@ -426,16 +425,6 @@ while not game_over:
 
                 outbreak_stopped = True
 
-                cursor = conn.cursor()
-
-                sql = """
-                      UPDATE game
-                      SET main_outbreak_completed = 1
-                      WHERE game_id = %s
-                      """
-
-                cursor.execute(sql, (game_id,))
-
                 mark_event_completed(game_id, current_airport)  # <<< ADDED
 
                 print("Return to the starting airport to finish the mission.")
@@ -533,6 +522,7 @@ while not game_over:
     if outbreak_stopped and current_airport == start_airport:
 
         print("\nMISSION COMPLETE!")
+        print("You are at:", airport["name"])
         print("You successfully controlled the outbreak and returned safely.")
 
         game_over = True
