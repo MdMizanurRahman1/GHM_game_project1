@@ -419,13 +419,15 @@ while not game_over:
                 print("You are at:", final_airport["name"])
                 print("You successfully controlled the outbreak and returned safely.")
 
+                print("Money left:", money)
+                print("Fuel left:", int(fuel_range_km))
+
                 game_over = True
                 break
 
             else:
 
                 print("Invalid choice. The outbreak continues.")
-
 
     if money > 0:
 
@@ -449,7 +451,6 @@ while not game_over:
 
                 print("New fuel range:", int(fuel_range_km), "km")
                 print("Money left:", money)
-
 
     available_airports = airports_in_range(current_airport, airports, fuel_range_km)
 
@@ -505,22 +506,8 @@ while not game_over:
             print("MISSION FAILED")
             game_over = True
 
-
     if money <= 0 and fuel_range_km <= 0:
 
         print("\nMISSION FAILED")
         game_over = True
 
-
-    # if outbreak_stopped and current_airport == start_airport:
-    #
-    #     print("\nMISSION COMPLETE!")
-    #     final_airport = get_airport_info(current_airport)
-    #     print("You are at:", final_airport["name"])
-    #     print("You successfully controlled the outbreak and returned safely.")
-    #
-    #     game_over = True
-
-
-    print("Money left:", money)
-    print("Fuel left:", int(fuel_range_km))
