@@ -1,8 +1,11 @@
+#Libraries imported for this project
 import mysql.connector
 import random
 from geopy import distance
 
-conn = mysql.connector.connect(
+#connect the pycharm to health_game database
+
+connection_db = mysql.connector.connect(
          host='127.0.0.1',
          port= 3306,
          database='health_game',
@@ -12,8 +15,8 @@ conn = mysql.connector.connect(
          )
 
 
-#1 To get 30 airports
-def get_airports():
+#Step 1. Get random 30 airports, one per each EU countries
+def load_airports():
 
     sql = """
     SELECT iso_country, ident, name, latitude_deg, longitude_deg
@@ -25,16 +28,16 @@ def get_airports():
     LIMIT 30
     """
 
-    cursor = conn.cursor(dictionary=True)
+    cursor = connection_db.cursor(dictionary=True)
     cursor.execute(sql)
 
     return cursor.fetchall()
 
 
-#STEP 2 – CREATE A NEW GAME SESSION
+#Step 2. create a new game session in mariadb database
 # ==========================================================
 
-def create_game(player_name, start_airport, money, fuel):
+def create_newGame(scientist_name, starting_airport, money, fuel_ranges):
 
     sql = """
     INSERT INTO game
@@ -45,41 +48,41 @@ def create_game(player_name, start_airport, money, fuel):
     VALUES (%s,%s,%s,%s,%s,0,0,'ongoing')
     """
 
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute(sql, (player_name, start_airport, start_airport, money, fuel))
+    cursor = connection_db.cursor(dictionary=True)
+    cursor.execute(sql, (scientist_name, starting_airport, starting_airport, money, fuel_ranges))
 
     return cursor.lastrowid
 
 
 # ==========================================================
-# Step 3 ASSIGN EVENTS TO AIRPORTS
+# Step 3. assigning the events based on probability values in 30 airports
 # ==========================================================
 
-def assign_events(game_id, airports, start_airport):
+def assigning_events(game_id, airports, starting_airport):
 
-    cursor = conn.cursor(dictionary=True)
+    cursor = connection_db.cursor(dictionary=True)
 
     sql = "SELECT event_id, probability FROM event"
     cursor.execute(sql)
     events = cursor.fetchall()
 
-    event_list = []
+    event_lists = []
 
     for event in events:
         for i in range(event["probability"]):
-            event_list.append(event["event_id"])
+            event_lists.append(event["event_id"])
 
-    available_airports = [a for a in airports if a["ident"] != start_airport]
+    accessible_airports = [a for a in airports if a["ident"] != starting_airport]
 
-    random.shuffle(available_airports)
-    random.shuffle(event_list)
+    random.shuffle(accessible_airports)
+    random.shuffle(event_lists)
 
-    for i, event_id in enumerate(event_list):
+    for i, event_id in enumerate(event_lists):
 
-        if i >= len(available_airports):
+        if i >= len(accessible_airports):
             break
 
-        airport_id = available_airports[i]["ident"]
+        airport_id = accessible_airports[i]["ident"]
 
         sql = """
         INSERT INTO game_event
@@ -90,8 +93,8 @@ def assign_events(game_id, airports, start_airport):
         cursor.execute(sql, (game_id, airport_id, event_id))
 
 
-# Step 4 get airport information
-def get_airport_info(icao):
+# Step 4. fetch airport information using ICAO codes
+def get_airport_information(icao_code):
 
     sql = """
     SELECT iso_country, ident, name, latitude_deg, longitude_deg
@@ -99,45 +102,45 @@ def get_airport_info(icao):
     WHERE ident = %s
     """
 
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute(sql, (icao,))
+    cursor = connection_db.cursor(dictionary=True)
+    cursor.execute(sql, (icao_code,))
 
     return cursor.fetchone()
 
 
-#Step 5  CALCULATE DISTANCE between two airports
+#Step 5. calculate the travel distance between two airports in km
 # ==========================================================
 
 def calculate_distance(current, target):
 
-    start = get_airport_info(current)
-    end = get_airport_info(target)
+    started_airport = get_airport_information(current)
+    destinated_airport = get_airport_information(target)
 
     return distance.distance(
-        (start["latitude_deg"], start["longitude_deg"]),
-        (end["latitude_deg"], end["longitude_deg"])
+        (started_airport["latitude_deg"], started_airport["longitude_deg"]),
+        (destinated_airport["latitude_deg"], destinated_airport["longitude_deg"])
     ).km
 
 
-#step 6 find range for airports
+#step 6. find range for airports which can be reachable with current fuel
 
-def airports_in_range(icao, airports, fuel_range_km):
+def airports_in_ranges(icao_code, airports, fuel_range_km):
 
-    in_range_airports = []
+    airports_reachable = []
 
     for airport in airports:
 
-        dist = calculate_distance(icao, airport["ident"])
+        dist = calculate_distance(icao_code, airport["ident"])
 
-        if dist <= fuel_range_km and  not dist ==0:
-            in_range_airports.append(airport)
+        if dist <= fuel_range_km and dist !=0:
+            airports_reachable.append(airport)
 
-    return in_range_airports
+    return airports_reachable
 
 
-#step 7 check events if exists
+#step 7 check events if these are available when player lands in airport 
 
-def check_event(game_id, airport):
+def check_events(game_id, airport):
 
     sql = """
 SELECT event.event_id,
@@ -153,21 +156,22 @@ WHERE game_id=%s
 AND airport_id=%s 
     """
 
-    cursor = conn.cursor(dictionary=True)
+    cursor = connection_db.cursor(dictionary=True)
     cursor.execute(sql, (game_id, airport))
 
-    result = cursor.fetchone()
+    result_output = cursor.fetchone()
 
-    if result is None:
+    if result_output is None:
         return False
 
-    return result
+    return result_output
 
 
-#step 8 QUIZ FUNCTIONS
+#step 8. quiz questions, options and answers,
+# sub-step 1. get all the quiz questions
 # ==========================================================
 
-def get_questions(event_id):
+def get_all_questions(event_id):
 
     sql = """
     SELECT quiz_id,question_text
@@ -175,13 +179,13 @@ def get_questions(event_id):
     WHERE event_id=%s
     """
 
-    cursor = conn.cursor(dictionary=True)
+    cursor = connection_db.cursor(dictionary=True)
     cursor.execute(sql,(event_id,))
 
     return cursor.fetchall()
 
-
-def get_answers(quiz_id):
+# sub-step 2. get all the quiz answer options
+def get_all_answers(quiz_id):
 
     sql = """
     SELECT answer_id,answer_text
@@ -189,13 +193,13 @@ def get_answers(quiz_id):
     WHERE quiz_id=%s
     """
 
-    cursor = conn.cursor(dictionary=True)
+    cursor = connection_db.cursor(dictionary=True)
     cursor.execute(sql,(quiz_id,))
 
     return cursor.fetchall()
 
-
-def check_answer(answer_id):
+# sub-step 3. get the correct quiz answer
+def check_correct_answer(answer_id):
 
     sql = """
     SELECT is_correct
@@ -203,18 +207,18 @@ def check_answer(answer_id):
     WHERE answer_id = %s
     """
 
-    cursor = conn.cursor(dictionary=True)
+    cursor = connection_db.cursor(dictionary=True)
     cursor.execute(sql, (answer_id,))
 
-    result = cursor.fetchone()
+    result_output = cursor.fetchone()
 
-    return result["is_correct"]
+    return result_output["is_correct"]
 
 
-# Step 9 update game status or current location
+# Step 9 update game money, location, and fuel and save to the database
 # ==========================================================
 
-def update_game(current_airport, fuel, money, game_id):
+def update_game_session(current_airport_location, fuel_ranges, money, game_id):
 
     sql = """
     UPDATE game
@@ -224,18 +228,19 @@ def update_game(current_airport, fuel, money, game_id):
     WHERE game_id = %s
     """
 
-    cursor = conn.cursor()
-    cursor.execute(sql,(current_airport, fuel, money, game_id))
+    cursor = connection_db.cursor()
+    cursor.execute(sql,(current_airport_location, fuel_ranges, money, game_id))
+
 
 
 # ==========================================================
-#Step 1 start the game
+#Step 1. Start the main game session
 
-print("\nGLOBAL HEALTH MISSION")
+print("\nWELCOME TO GLOBAL HEALTH MISSION")
 
-player_name = input("Enter scientist name: ")
-print("\nWelcome", player_name + "!")
-print("Mission: Stop the virus outbreak and return safely to your starting airport.")
+scientist_name = input("Enter the scientist name: ")
+print("\nWelcome", scientist_name + "!")
+print("Mission: Stop the main virus outbreak and return safely to the starting airport.")
 
 money = 1000
 fuel_range_km = 2000
@@ -250,27 +255,27 @@ bonus_events_seen = 0
 
 # STEP 2 – load all airports
 
-airports = get_airports()
+airports = load_airports()
 
-start_airport = airports[0]["ident"]
-current_airport = start_airport
+starting_airport = airports[0]["ident"]
+current_airport_location = starting_airport
 
 
 # STEP 3 – CREATE GAME IN DATABASE
 
-game_id = create_game(player_name, start_airport, money, fuel_range_km)
+game_id = create_newGame(scientist_name, starting_airport, money, fuel_range_km)
 
 
 # STEP 4 – ASSIGN EVENTS
 
-assign_events(game_id, airports, start_airport)
+assigning_events(game_id, airports, starting_airport)
 
 
 # STEP 5 – MAIN GAME LOOP
 
 while not game_over:
 
-    airport = get_airport_info(current_airport)
+    airport = get_airport_information(current_airport_location)
 
     print("\n----------------------------------")
     print("You are at:", airport["name"])
@@ -284,14 +289,14 @@ while not game_over:
     print("Risk events encountered:", risk_events_seen, "/ 1")
     print("Bonus events received:", bonus_events_seen, "/ 1")
 
-    event = check_event(game_id, current_airport)
+    event = check_events(game_id, current_airport_location)
 
 
     if event and event["event_type"] == "Help":
 
         print("\nHelp Mission:", event["event_name"])
 
-        questions = get_questions(event["event_id"])
+        questions = get_all_questions(event["event_id"])
 
         correct_answers = 0
 
@@ -299,7 +304,7 @@ while not game_over:
 
             print("\nQuestion:", question["question_text"])
 
-            answers = get_answers(question["quiz_id"])
+            answers = get_all_answers(question["quiz_id"])
 
             for a in answers:
                 print(a["answer_id"], "-", a["answer_text"])
@@ -311,7 +316,7 @@ while not game_over:
 
                 user_answer = int(input("Choose answer number: "))
 
-                if check_answer(user_answer):
+                if check_correct_answer(user_answer):
 
                     print("Correct!")
                     correct_answers += 1
@@ -409,11 +414,11 @@ while not game_over:
                 print("Return to the starting airport to finish the mission.")
 
                 # move player to starting airport
-                current_airport = start_airport
+                current_airport_location = starting_airport
 
                 # show final location and win codition
 
-                final_airport = get_airport_info(current_airport)
+                final_airport = get_airport_information(current_airport_location)
 
                 print("\nMISSION COMPLETE!")
                 print("You are at:", final_airport["name"])
@@ -452,25 +457,25 @@ while not game_over:
                 print("New fuel range:", int(fuel_range_km), "km")
                 print("Money left:", money)
 
-    available_airports = airports_in_range(current_airport, airports, fuel_range_km)
+    accessible_airports = airports_in_ranges(current_airport_location, airports, fuel_range_km)
 
-    if len(available_airports) > 0:
+    if len(accessible_airports) > 0:
 
         print("\nAirports in range:")
 
-        for airport in available_airports:
-            dist = calculate_distance(current_airport, airport["ident"])
+        for airport in accessible_airports:
+            dist = calculate_distance(current_airport_location, airport["ident"])
             print(airport["ident"], "-", airport["name"], "-", int(dist), "km")
 
         destination = input("\nEnter destination ICAO: ").upper()
 
-        travel_distance = calculate_distance(current_airport, destination)
+        travel_distance = calculate_distance(current_airport_location, destination)
 
         if travel_distance <= fuel_range_km:
 
             fuel_range_km -= travel_distance
-            update_game(destination, fuel_range_km, money, game_id)
-            current_airport = destination
+            update_game_session(destination, fuel_range_km, money, game_id)
+            current_airport_location = destination
 
         else:
             print("That airport is too far.")
