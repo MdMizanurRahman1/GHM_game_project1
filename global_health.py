@@ -316,7 +316,7 @@ while not game_over:
     event = check_events(game_id, current_airport_location)
 
 # Help events and questions
-
+    #for questions par
     if event and event["event_type"] == "Help":
 
         print("\nHelp Mission:", event["event_name"])
@@ -329,10 +329,17 @@ while not game_over:
 
             print("\nQuestion:", question["question_text"])
 
+#for answers part
             answers = get_all_answers(question["quiz_id"])
 
             for ans in answers:
                 print(ans["answer_id"], "-", ans["answer_text"])
+
+            # creating valid/correct answers in lists
+            right_answers = []
+
+            for right in answers:
+                right_answers.append(right["answer_id"])
 
             attempt_numbers = 2
             answered_correctly = False
@@ -340,6 +347,10 @@ while not game_over:
             while attempt_numbers > 0 and not answered_correctly:
 
                 user_answer = int(input("Choose the correct answer number: "))
+
+                if user_answer not in right_answers:
+                    print("Invalid number option.")
+                    continue
 
                 if check_correct_answer(user_answer):
 
@@ -380,9 +391,14 @@ while not game_over:
         choice = input("1 To leave quickly (-100€) / 2 Delay (-200€): ")
 
         if choice == "1":
-            money -= 100
+            penalty_money = 100
         else:
-            money -= 200
+            penalty_money = 200
+
+        if money >= penalty_money:
+            money -= penalty_money
+        else:
+            money = 0
 
         print("Remaining money:", money)
 
@@ -456,7 +472,7 @@ while not game_over:
         print("\nFuel station available")
         print("1 € = 2 km fuel")
 
-        buy = input("Please enter money amount to buy fuel (or press Enter to skip): ")
+        buy = input("Please enter amount to buy fuel (or press Enter to skip): ")
 
         if buy != "":
 
@@ -486,8 +502,18 @@ while not game_over:
             dist = calculate_distance(current_airport_location, airport["ident"])
             print(airport["ident"], "-", airport["name"], "-", int(dist), "km")
 
-        travel_destination = input("\nEnter ICAO code: ").upper()
+        #ICAO code validity
+        valid_ICAOs=[]
+        for v_icao in accessible_airports:
+            valid_ICAOs.append(v_icao["ident"])
 
+        travel_destination = input("\nEnter the ICAO code: ").upper()
+
+        while travel_destination not in valid_ICAOs:
+            print("\nICAO code is not valid. Choose the correct ICAO")
+            travel_destination = input("Enter the ICAO code again: ").upper()
+
+        #distance calculation
         travel_distance = calculate_distance(current_airport_location, travel_destination)
 
         if travel_distance <= fuel_range_km:
