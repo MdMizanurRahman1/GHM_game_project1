@@ -4,16 +4,16 @@ About the Project
 This project is a simple text-based game made with Python and MySQL.
 In the game, the player becomes a scientist who travels between different airports in Europe. The mission is to help stop a virus outbreak by completing tasks and finally finding the main outbreak location.
 
-The idea of the game is to combine programming with a small adventure-style challenge. While travelling between airports, the player must manage money and fuel and also complete different events that appear at airports.
+The idea of the game is to combine programming with a small adventure-style challenge. While traveling between airports, the player must manage money and fuel and also complete different events that appear at airports.
 
 Game Goal
 The main goal of the game is to stop the virus outbreak.
 
 To reach the final outbreak location, the player needs to:
 
-* complete at least two help missions
-* encounter at least one virus risk event
-* receive at least one bonus event
+* complete at least three help missions
+* encounter at least two virus risk event
+* receive at least two bonus event
 
 After these conditions are completed, the player can stop the main outbreak. Once the outbreak is controlled, the player returns to the starting airport and the mission is completed.
 

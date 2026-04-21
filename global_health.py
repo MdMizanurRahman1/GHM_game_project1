@@ -138,22 +138,22 @@ def airports_in_ranges(icao_code, airports, fuel_range_km):
     return airports_reachable
 
 
-#step 7 check events if these are available when player lands in airport 
-
+#step 7 check events if these are available when player lands in airport
 def check_events(game_id, airport):
 
     sql = """
-SELECT event.event_id,
-       event.event_type,
-       event.event_name,
-       reward_money,
-       reward_fuel,
-       penalty_option_one,
-       penalty_option_two
-FROM game_event
-JOIN event ON event.event_id = game_event.event_id
-WHERE game_id=%s 
-AND airport_id=%s 
+    SELECT event.event_id,
+           event.event_type,
+           event.event_name,
+           reward_money,
+           reward_fuel,
+           penalty_option_one,
+           penalty_option_two
+    FROM game_event
+    JOIN event ON event.event_id = game_event.event_id
+    WHERE game_id=%s 
+    AND airport_id=%s
+    AND is_completed = 0
     """
 
     cursor = connection_db.cursor(dictionary=True)
@@ -231,13 +231,23 @@ def update_game_session(current_airport_location, fuel_ranges, money, game_id):
     cursor = connection_db.cursor()
     cursor.execute(sql,(current_airport_location, fuel_ranges, money, game_id))
 
+#Mark event done
+def mark_event_done(game_id, airport):
+    cursor = connection_db.cursor()
+
+    sql = """
+    UPDATE game_event
+    SET is_completed = 1
+    WHERE game_id = %s AND airport_id = %s
+    """
+
+    cursor.execute(sql, (game_id, airport))
+
 
 # Step 10. Start the main game session
 # ==========================================================
 
 # Sub-step 1. Start the main game session and Initializes the variables
-
-#print("\nWELCOME TO THE GLOBAL HEALTH MISSION VENTURE")
 
 read_plan = input("Hi!, Do you want to read the mission plan? (y/n): ").lower()
 
@@ -260,6 +270,10 @@ risk_events_found = 0
 bonus_events_found = 0
 
 
+REQUIRED_HELP = 3
+REQUIRED_RISK = 2
+REQUIRED_BONUS = 2
+
 # Sub-step 2 – load all 30 airports
 
 airports = load_airports()
@@ -278,8 +292,7 @@ game_id = create_newGame(scientist_name, starting_airport, money, fuel_range_km)
 assigning_events(game_id, airports, starting_airport)
 
 
-# Sub-step 5 – starting the main game loop
-
+last_event_type = None
 # Sub-step 5 – starting the main game loop
 
 while not game_over:
@@ -310,13 +323,22 @@ while not game_over:
     print("Your current fuel:", int(fuel_range_km), "km")
 
     print("\nMission Ongoing")
-    print("Help missions earned:", missions_completed_successfully, "/ 2")
-    print("Risk events identified:", risk_events_found, "/ 1")
-    print("Bonus events obtained:", bonus_events_found, "/ 1")
+
+    shown_help = min(missions_completed_successfully, REQUIRED_HELP)
+    shown_risk = min(risk_events_found, REQUIRED_RISK)
+    shown_bonus = min(bonus_events_found, REQUIRED_BONUS)
+
+    print("Help missions earned:", shown_help, "/", REQUIRED_HELP)
+    print("Risk events identified:", shown_risk, "/", REQUIRED_RISK)
+    print("Bonus events obtained:", shown_bonus, "/", REQUIRED_BONUS)
 
 
     # Check events
     event = check_events(game_id, current_airport_location)
+
+    # prevent same event repeating immediately
+    if event and event["event_type"] == last_event_type:
+        event = False
 
 
     # ---------------- HELP EVENT ----------------
@@ -376,6 +398,8 @@ while not game_over:
         else:
             print("Mission failed.")
 
+        mark_event_done(game_id, current_airport_location)
+        last_event_type = "Help"
 
     # ---------------- RISK EVENT ----------------
     elif event and event["event_type"] == "Risk":
@@ -394,6 +418,8 @@ while not game_over:
         print("Remaining money:", money)
         risk_events_found += 1
 
+        mark_event_done(game_id, current_airport_location)
+        last_event_type = "Risk"
 
     # ---------------- BONUS EVENT ----------------
     elif event and event["event_type"] == "Bonus":
@@ -411,11 +437,13 @@ while not game_over:
 
         bonus_events_found += 1
 
+        mark_event_done(game_id, current_airport_location)
+        last_event_type = "Bonus"
 
     # ---------------- MAIN EVENT ----------------
     elif event and event["event_type"] == "Main":
 
-        if missions_completed_successfully < 2 or risk_events_found < 1 or bonus_events_found < 1:
+        if missions_completed_successfully < REQUIRED_HELP or risk_events_found < REQUIRED_RISK or bonus_events_found < REQUIRED_BONUS:
             print("\nYou are at the main outbreak location!")
             print("Complete required missions first.")
         else:
@@ -426,6 +454,8 @@ while not game_over:
             if choice in ["1", "2", "3"]:
                 print("\nOutbreak stopped!")
                 outbreak_stopped = True
+                mark_event_done(game_id, current_airport_location)
+                last_event_type = "Main"
                 current_airport_location = starting_airport
                 continue
 
