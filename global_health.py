@@ -237,9 +237,15 @@ def update_game_session(current_airport_location, fuel_ranges, money, game_id):
 
 # Sub-step 1. Start the main game session and Initializes the variables
 
-print("\nWELCOME TO THE GLOBAL HEALTH MISSION VENTURE")
+#print("\nWELCOME TO THE GLOBAL HEALTH MISSION VENTURE")
 
+read_plan = input("Hi!, Do you want to read the mission plan? (y/n): ").lower()
+
+if read_plan == "y":
+    with open("README.txt") as file:
+        print(file.read())
 scientist_name = input("Enter the scientist name: ")
+
 print("\nWelcome", scientist_name + "!")
 print("Mission: Your main goal is to stop the main virus outbreak and return safely.")
 
@@ -346,10 +352,16 @@ while not game_over:
 
             while attempt_numbers > 0 and not answered_correctly:
 
-                user_answer = int(input("Choose the correct answer number: "))
+                user_input_value = input("Choose the correct answer number please: ")
+
+                if user_input_value == "":
+                    print("Please enter a number.")
+                    continue
+
+                user_answer = int(user_input_value)
 
                 if user_answer not in right_answers:
-                    print("Invalid number option.")
+                    print("You tried an invalid number option.")
                     continue
 
                 if check_correct_answer(user_answer):
