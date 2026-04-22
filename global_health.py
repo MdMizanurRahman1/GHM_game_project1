@@ -262,6 +262,11 @@ print("Mission: Your main goal is to stop the main virus outbreak and return saf
 money = 1000
 fuel_range_km = 2000
 
+health = 100
+current_day = 1
+days_limit = 20
+
+
 game_over = False
 outbreak_stopped = False
 missions_completed_successfully = 0
@@ -271,7 +276,7 @@ bonus_events_found = 0
 
 
 REQUIRED_HELP = 3
-REQUIRED_RISK = 2
+REQUIRED_RISK = 1
 REQUIRED_BONUS = 2
 
 # Sub-step 2 – load all 30 airports
@@ -297,7 +302,7 @@ last_event_type = None
 
 while not game_over:
 
-    # Win condition at first
+    # ---------------- WIN CONDITION ----------------
     if outbreak_stopped and current_airport_location == starting_airport:
         final_airport = get_airport_information(current_airport_location)
 
@@ -311,8 +316,18 @@ while not game_over:
         game_over = True
         break
 
+    # ---------------- LOSE CONDITION (NEW - TOP) ----------------
+    if health <= 0:
+        print("\nMISSION FAILED: You got infected.")
+        game_over = True
+        break
 
-    # Player's current status
+    if current_day > days_limit:
+        print("\nMISSION FAILED: Time ran out.")
+        game_over = True
+        break
+
+    # ---------------- STATUS ----------------
     airport = get_airport_information(current_airport_location)
 
     print("\n----------------------------------")
@@ -321,6 +336,8 @@ while not game_over:
 
     print("Your current balance:", money, "€.")
     print("Your current fuel:", int(fuel_range_km), "km")
+    print("Health:", health)
+    print("Day:", current_day, "/", days_limit)
 
     print("\nMission Ongoing")
 
@@ -332,14 +349,11 @@ while not game_over:
     print("Risk events identified:", shown_risk, "/", REQUIRED_RISK)
     print("Bonus events obtained:", shown_bonus, "/", REQUIRED_BONUS)
 
-
-    # Check events
+    # ---------------- EVENTS ----------------
     event = check_events(game_id, current_airport_location)
 
-    # prevent same event repeating immediately
     if event and event["event_type"] == last_event_type:
         event = False
-
 
     # ---------------- HELP EVENT ----------------
     if event and event["event_type"] == "Help":
@@ -350,16 +364,13 @@ while not game_over:
         correct_answers_count = 0
 
         for question in questions:
-
             print("\nQuestion:", question["question_text"])
             answers = get_all_answers(question["quiz_id"])
 
             for ans in answers:
                 print(ans["answer_id"], "-", ans["answer_text"])
 
-            right_answers = []
-            for right in answers:
-                right_answers.append(right["answer_id"])
+            right_answers = [a["answer_id"] for a in answers]
 
             attempt_numbers = 2
             answered_correctly = False
@@ -375,7 +386,7 @@ while not game_over:
                 user_answer = int(user_input_value)
 
                 if user_answer not in right_answers:
-                    print("You tried an invalid number option.")
+                    print("Invalid option.")
                     continue
 
                 if check_correct_answer(user_answer):
@@ -385,16 +396,22 @@ while not game_over:
                 else:
                     attempt_numbers -= 1
                     if attempt_numbers > 0:
-                        print("Incorrect answer. Try again please.")
+                        print("Incorrect. Try again.")
                     else:
                         print("No attempts remaining.")
 
         if correct_answers_count >= 2:
-            print("Mission is successful!")
+            print("Mission successful!")
             money += event["reward_money"]
             missions_completed_successfully += 1
-            print("Gifted money:", event["reward_money"], "€")
-            print("Your new balance:", money, "€")
+
+            print("Reward:", event["reward_money"], "€")
+            print("Balance:", money)
+
+            # HEALTH RECOVERY
+            health += 5
+            print("Health improved! +5")
+
         else:
             print("Mission failed.")
 
@@ -406,16 +423,20 @@ while not game_over:
 
         print("\nVirus activity identified!")
 
-        choice = input("1 To leave quickly (-100€) / 2 Delay (-200€): ")
+        choice = input("1 Leave quickly (-100€) / 2 Delay (-200€): ")
 
         penalty_money = 100 if choice == "1" else 200
 
-        if money >= penalty_money:
-            money -= penalty_money
-        else:
-            money = 0
-
+        money = max(0, money - penalty_money)
         print("Remaining money:", money)
+
+        # HEALTH DAMAGE
+        health -= 15
+        print("You were exposed to the virus! Health:", health)
+
+        if health < 0:
+            health = 0
+
         risk_events_found += 1
 
         mark_event_done(game_id, current_airport_location)
@@ -430,10 +451,10 @@ while not game_over:
 
         if reward_type == "money":
             money += 50
-            print("You got +50€ bonus")
+            print("You got +50€")
         else:
             fuel_range_km += 10
-            print("You got +10 fuel bonus")
+            print("You got +10 fuel")
 
         bonus_events_found += 1
 
@@ -444,95 +465,98 @@ while not game_over:
     elif event and event["event_type"] == "Main":
 
         if missions_completed_successfully < REQUIRED_HELP or risk_events_found < REQUIRED_RISK or bonus_events_found < REQUIRED_BONUS:
-            print("\nYou are at the main outbreak location!")
-            print("Complete required missions first.")
+            print("\nComplete required missions first.")
         else:
             print("\nFinal mission!")
 
-            choice = input("Enter your choice (1, 2 or 3): ")
+            choice = input("Choose (1,2,3): ")
 
             if choice in ["1", "2", "3"]:
-                print("\nOutbreak stopped!")
+                print("Outbreak stopped!")
                 outbreak_stopped = True
                 mark_event_done(game_id, current_airport_location)
-                last_event_type = "Main"
                 current_airport_location = starting_airport
                 continue
 
-
-    # ---------------- TRAVEL SYSTEM ----------------
+    # ---------------- TRAVEL ----------------
     accessible_airports = airports_in_ranges(current_airport_location, airports, fuel_range_km)
 
-    if len(accessible_airports) > 0:
+    if accessible_airports:
 
         print("\nAirports in range:")
 
         airports_with_distance = []
 
-        for airport_item in accessible_airports:
-            dist = calculate_distance(current_airport_location, airport_item["ident"])
-            airports_with_distance.append([airport_item, dist])
+        for a in accessible_airports:
+            d = calculate_distance(current_airport_location, a["ident"])
+            airports_with_distance.append([a, d])
 
+
+        # simple sorting
         def get_distance(item):
             return item[1]
+
 
         airports_with_distance.sort(key=get_distance)
 
         for i in range(len(airports_with_distance)):
-            airport_item = airports_with_distance[i][0]
-            dist = airports_with_distance[i][1]
+            item = airports_with_distance[i]
 
-            print(i + 1, "-", airport_item["ident"], "-", airport_item["name"], "-", int(dist), "km")
-
+            print(i + 1, "-", item[0]["ident"], "-", item[0]["name"], "-", int(item[1]), "km")
         choice = input("\nChoose airport number: ")
 
-        while choice == "" or not choice.isdigit() or int(choice) < 1 or int(choice) > len(airports_with_distance):
-            print("Invalid choice.")
-            choice = input("Choose airport number again: ")
+        while not choice.isdigit() or not (1 <= int(choice) <= len(airports_with_distance)):
+            choice = input("Choose again: ")
 
-        choice = int(choice)
-
-        selected_airport = airports_with_distance[choice - 1][0]["ident"]
-
+        selected_airport = airports_with_distance[int(choice)-1][0]["ident"]
         travel_distance = calculate_distance(current_airport_location, selected_airport)
 
         if travel_distance <= fuel_range_km:
+
             fuel_range_km -= travel_distance
             update_game_session(selected_airport, fuel_range_km, money, game_id)
             current_airport_location = selected_airport
+
+            # TIME + HEALTH COST
+            current_day += 1
+            health -= 5
+
+            print("Travel cost: -1 day, -5 health")
+
         else:
-            print("That airport is too far.")
+            print("Too far.")
+
+
 
     else:
+
         print("\nNo airports available.")
 
-        if money <= 0:
-            print("MISSION FAILED")
-            game_over = True
+        # if player cannot move AND cannot buy fuel → lose
 
+        if fuel_range_km <= 0 or len(accessible_airports) == 0:
 
-    # ---------------- FUEL SYSTEM (ONLY HERE) ----------------
+            if money <= 0:
+                print("\nMISSION FAILED: You are stuck with no fuel and no money.")
+
+                game_over = True
+
+    # ---------------- FUEL ----------------
     if money > 0 and not game_over:
 
-        print("\nFuel station available")
-        print("1 € = 2 km fuel")
+        fuel_buy = input("Buy fuel (Enter to skip): ")
 
-        fuel_buy = input("Enter amount to buy fuel (or press Enter to skip): ")
-
-        if fuel_buy != "":
+        if fuel_buy:
             fuel_buy = int(fuel_buy)
 
             if fuel_buy <= money:
                 fuel_range_km += fuel_buy * 2
                 money -= fuel_buy
-
-                print("New fuel:", int(fuel_range_km), "km")
-                print("Money left:", money, "€")
+                print("Fuel:", int(fuel_range_km), "| Money:", money)
             else:
                 print("Not enough money.")
 
-
-    # ---------------- LOSE CONDITION ----------------
+    # ---------------- LOSE ----------------
     if money <= 0 and fuel_range_km <= 0:
         print("\nMISSION FAILED")
         game_over = True
